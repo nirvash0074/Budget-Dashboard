@@ -133,6 +133,21 @@ function initSheets(ss) {
 }
 
 /**
+ * Utility: parse amounts coming in from Sheets or from API payloads.
+ * This strips common formatting (currency symbols, commas, spaces) and returns a Number.
+ */
+function parseAmount(val) {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return val;
+  if (val instanceof Date) return 0;
+  var s = String(val);
+  // Remove any characters except digits, minus sign and decimal point
+  var cleaned = s.replace(/[^0-9.\-]+/g, '');
+  var n = Number(cleaned);
+  return (isFinite(n) ? n : 0);
+}
+
+/**
  * Reads all data for a specific user (or all if empty)
  */
 function readUserData(ss, userId) {
@@ -161,7 +176,7 @@ function readUserData(ss, userId) {
         type: String(row[3] || 'expense').toLowerCase(),
         category: String(row[4] || 'Other'),
         desc: String(row[5] || ''),
-        amount: Number(row[6] || 0),
+        amount: parseAmount(row[6] || 0),
         method: String(row[7] || 'Card'),
         notes: String(row[8] || '')
       });
@@ -174,7 +189,7 @@ function readUserData(ss, userId) {
     var cRow = catData[j];
     var cName = String(cRow[0] || '').trim();
     var cType = String(cRow[1] || 'expense').toLowerCase();
-    var cBudget = Number(cRow[2] || 0);
+    var cBudget = parseAmount(cRow[2] || 0);
     var cUser = String(cRow[3] || '');
 
     if (cName && (!userId || !cUser || cUser === userId)) {
@@ -193,7 +208,7 @@ function readUserData(ss, userId) {
     var bRow = bData[k];
     var bUser = String(bRow[0] || '');
     var bCat = String(bRow[1] || '').trim();
-    var bTarget = Number(bRow[2] || 0);
+    var bTarget = parseAmount(bRow[2] || 0);
     if (bCat && (!userId || !bUser || bUser === userId)) {
       budgets[bCat] = bTarget;
     }
@@ -211,9 +226,9 @@ function readUserData(ss, userId) {
         salaryMonths[sMonth] = {
           monthKey: sMonth,
           monthLabel: sLabel,
-          income15th: Number(sRow[2] || 0),
-          income30th: Number(sRow[3] || 0),
-          totalBudget: Number(sRow[4] || 0)
+          income15th: parseAmount(sRow[2] || 0),
+          income30th: parseAmount(sRow[3] || 0),
+          totalBudget: parseAmount(sRow[4] || 0)
         };
       }
     }
@@ -253,7 +268,7 @@ function saveTransaction(ss, tx, userId) {
     tx.type,
     tx.category,
     tx.desc,
-    Number(tx.amount),
+    parseAmount(tx.amount),
     tx.method || 'Card',
     tx.notes || '',
     new Date()
@@ -298,9 +313,9 @@ function saveSalaryData(ss, salaryData, userId) {
     rows.push([
       mKey,
       item.monthLabel || mKey,
-      Number(item.income15th || 0),
-      Number(item.income30th || 0),
-      Number(item.totalBudget || 0),
+      parseAmount(item.income15th || 0),
+      parseAmount(item.income30th || 0),
+      parseAmount(item.totalBudget || 0),
       userId || '',
       new Date()
     ]);
@@ -337,7 +352,7 @@ function syncAllData(ss, payload) {
         tx.type,
         tx.category,
         tx.desc,
-        Number(tx.amount),
+        parseAmount(tx.amount),
         tx.method || 'Card',
         tx.notes || '',
         new Date()
@@ -351,7 +366,7 @@ function syncAllData(ss, payload) {
   if (expenseCategories.length > 0) {
     var catRows = [['Category Name', 'Type', 'Monthly Budget Target', 'User ID']];
     expenseCategories.forEach(function(c) {
-      catRows.push([c, 'expense', Number(budgets[c] || 0), userId]);
+      catRows.push([c, 'expense', parseAmount(budgets[c] || 0), userId]);
     });
     catSheet.clearContents();
     catSheet.getRange(1, 1, catRows.length, 4).setValues(catRows);
