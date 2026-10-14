@@ -148,6 +148,42 @@ function parseAmount(val) {
 }
 
 /**
+ * Normalize month key input to a consistent 'YYYY-MM' string to avoid duplicate rows
+ */
+function normalizeMonthKey(mKey) {
+  if (mKey === null || mKey === undefined) return '';
+  if (mKey instanceof Date) {
+    return Utilities.formatDate(mKey, Session.getScriptTimeZone() || 'GMT', 'yyyy-MM');
+  }
+  var str = String(mKey).trim();
+  // If it's already in YYYY-MM format, return as-is
+  if (/^\d{4}-\d{2}$/.test(str)) return str;
+  // Try parseable date string
+  var d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return Utilities.formatDate(d, Session.getScriptTimeZone() || 'GMT', 'yyyy-MM');
+  }
+  // Fallback to original string
+  return str;
+}
+
+/**
+ * Normalize month label to 'MMMM yyyy' when possible
+ */
+function normalizeMonthLabel(label, fallbackKey) {
+  if (label === null || label === undefined) return fallbackKey || '';
+  if (label instanceof Date) {
+    return Utilities.formatDate(label, Session.getScriptTimeZone() || 'GMT', 'MMMM yyyy');
+  }
+  var str = String(label).trim();
+  var d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return Utilities.formatDate(d, Session.getScriptTimeZone() || 'GMT', 'MMMM yyyy');
+  }
+  return str || fallbackKey || '';
+}
+
+/**
  * Reads all data for a specific user (or all if empty)
  */
 function readUserData(ss, userId) {
@@ -310,9 +346,11 @@ function saveSalaryData(ss, salaryData, userId) {
   var rows = [['Month Key', 'Month Label', 'Income 15th', 'Income 30th', 'Total Budget', 'User ID', 'Updated At']];
   Object.keys(salaryData || {}).forEach(function(mKey) {
     var item = salaryData[mKey];
+    var normalizedKey = normalizeMonthKey(mKey);
+    var normalizedLabel = normalizeMonthLabel(item.monthLabel, normalizedKey);
     rows.push([
-      mKey,
-      item.monthLabel || mKey,
+      normalizedKey,
+      normalizedLabel,
       parseAmount(item.income15th || 0),
       parseAmount(item.income30th || 0),
       parseAmount(item.totalBudget || 0),
